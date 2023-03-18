@@ -9,7 +9,7 @@ public class JsonResult<T> {
     private String msg;
     private T data;
 
-    private JsonResult() {
+    public JsonResult() {
 
     }
 

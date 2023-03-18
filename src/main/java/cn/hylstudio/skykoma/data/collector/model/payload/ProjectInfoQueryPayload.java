@@ -6,6 +6,7 @@ import lombok.NoArgsConstructor;
 @Data
 @NoArgsConstructor
 public class ProjectInfoQueryPayload {
-    private String projectName;
+    private String key;
+    private String name;
     private Boolean createIfNotExists;
 }

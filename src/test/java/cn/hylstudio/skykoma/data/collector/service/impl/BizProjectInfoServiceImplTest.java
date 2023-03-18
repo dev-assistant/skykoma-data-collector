@@ -1,7 +1,8 @@
 package cn.hylstudio.skykoma.data.collector.service.impl;
 
 import cn.hylstudio.skykoma.data.collector.BootTests;
-import cn.hylstudio.skykoma.data.collector.model.ProjectDto;
+import cn.hylstudio.skykoma.data.collector.model.ProjectInfoDto;
+import cn.hylstudio.skykoma.data.collector.model.payload.ProjectInfoQueryPayload;
 import cn.hylstudio.skykoma.data.collector.model.payload.ProjectInfoUploadPayload;
 import cn.hylstudio.skykoma.data.collector.repo.neo4j.FileEntityRepo;
 import cn.hylstudio.skykoma.data.collector.service.IBizProjectInfoService;
@@ -19,11 +20,20 @@ class BizProjectInfoServiceImplTest extends BootTests {
     private FileEntityRepo fileEntityRepo;
 
     @Test
+    void testQueryProject() throws Exception {
+        ProjectInfoQueryPayload payload = new ProjectInfoQueryPayload();
+        payload.setName("test");
+        payload.setKey("test");
+        payload.setCreateIfNotExists(true);
+        ProjectInfoDto projectInfoDto = bizProjectInfoService.queryProject(payload);
+        LOGGER.info("testQueryProject, payload = [{}], projectInfoDto = [{}]", payload, projectInfoDto);
+    }
+    @Test
     void uploadProjectInfo() throws Exception {
         String fileContents = Files.readString(Paths.get("D:/1.json"));
         Gson gson = new Gson();
         ProjectInfoUploadPayload projectInfoUploadPayload = gson.fromJson(fileContents, ProjectInfoUploadPayload.class);
-        ProjectDto projectDto = bizProjectInfoService.uploadProjectInfo(projectInfoUploadPayload);
-        System.out.println(projectDto);
+        ProjectInfoDto projectDto = bizProjectInfoService.uploadProjectInfo(projectInfoUploadPayload);
+        LOGGER.info("uploadProjectInfo, fileContents = [{}], gson = [{}], projectInfoUploadPayload = [{}], projectDto = [{}]", fileContents, gson, projectInfoUploadPayload, projectDto);
     }
 }

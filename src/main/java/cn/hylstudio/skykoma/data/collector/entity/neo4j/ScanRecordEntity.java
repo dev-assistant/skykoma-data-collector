@@ -4,28 +4,26 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
-import org.springframework.data.neo4j.core.schema.GeneratedValue;
-import org.springframework.data.neo4j.core.schema.Id;
-import org.springframework.data.neo4j.core.schema.Node;
-import org.springframework.data.neo4j.core.schema.Property;
+import org.springframework.data.neo4j.core.schema.*;
 import org.springframework.data.neo4j.core.support.UUIDStringGenerator;
+
+import java.util.List;
 
 @Node
 @Data
 @NoArgsConstructor
-public class DependencyEntity {
+public class ScanRecordEntity {
 
     @Id
     @GeneratedValue(generatorClass = UUIDStringGenerator.class)
     private String id;
     @Property
-    private String name;
-    @Property
-    private String type;
-    @Property
-    private String groupId;
-    @Property
-    private String artifactId;
+    private String scanId;
+    @Relationship(type = "CONTAINS", direction = Relationship.Direction.OUTGOING)
+    private List<ModuleEntity> modules;
+    @Relationship(type = "ROOT_AT", direction = Relationship.Direction.OUTGOING)
+    private FileEntity rootFolder;
+
     @CreatedDate
     @Property
     private Long createdAt;
@@ -33,5 +31,4 @@ public class DependencyEntity {
     @LastModifiedDate
     @Property
     private Long updatedAt;
-
 }

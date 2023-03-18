@@ -6,7 +6,8 @@ import lombok.Getter;
 public enum BizCode {
     SUCC("C000000", "succ"),
     WRONG_PARAMS("C000001", "wrong param"),
-    NOT_FOUND("C000004", "wrong param");
+    NOT_FOUND("C000004", "wrong param"),
+    SYSTEM_ERROR("C00005", "system error");
     private String code;
     private String msg;
 

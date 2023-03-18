@@ -21,6 +21,9 @@ public class ModuleRootRel {
     @Property
     private Long updatedAt;
 
+    public ModuleRootRel() {
+    }
+
     public ModuleRootRel(FileEntity root, String type) {
         this.root = root;
         this.type = type;

@@ -5,10 +5,12 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 
 @Data
-@NoArgsConstructor
 public class BizException extends RuntimeException {
     private String code;
     private String msg;
+
+    public BizException() {
+    }
 
     public BizException(BizCode code) {
         this.code = code.getCode();

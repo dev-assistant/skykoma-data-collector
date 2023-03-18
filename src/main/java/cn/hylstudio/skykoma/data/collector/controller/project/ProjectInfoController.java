@@ -2,7 +2,7 @@ package cn.hylstudio.skykoma.data.collector.controller.project;
 
 import cn.hylstudio.skykoma.data.collector.controller.AbstractController;
 import cn.hylstudio.skykoma.data.collector.model.JsonResult;
-import cn.hylstudio.skykoma.data.collector.model.ProjectDto;
+import cn.hylstudio.skykoma.data.collector.model.ProjectInfoDto;
 import cn.hylstudio.skykoma.data.collector.model.payload.ProjectInfoQueryPayload;
 import cn.hylstudio.skykoma.data.collector.model.payload.ProjectInfoUploadPayload;
 import cn.hylstudio.skykoma.data.collector.service.IBizProjectInfoService;
@@ -23,20 +23,20 @@ public class ProjectInfoController extends AbstractController {
     private IBizProjectInfoService projectInfoService;
 
     @RequestMapping(value = "/queryProjectInfo", method = RequestMethod.POST)
-    public JsonResult<ProjectDto> queryProjectInfo(@RequestBody ProjectInfoQueryPayload payload) {
+    public JsonResult<ProjectInfoDto> queryProjectInfo(@RequestBody ProjectInfoQueryPayload payload) {
         LOGGER.info("queryProjectInfo, payload = [{}]", payload);
         Boolean createIfNotExists = payload.getCreateIfNotExists();
         if (createIfNotExists == null) {
             payload.setCreateIfNotExists(false);
         }
-        ProjectDto projectEntity = projectInfoService.queryProject(payload);
+        ProjectInfoDto projectEntity = projectInfoService.queryProject(payload);
         return JsonResult.succ(projectEntity);
     }
 
     @RequestMapping(value = "/uploadProjectInfo", method = RequestMethod.POST)
-    public JsonResult<ProjectDto> uploadProjectInfo(@RequestBody ProjectInfoUploadPayload payload) {
+    public JsonResult<ProjectInfoDto> uploadProjectInfo(@RequestBody ProjectInfoUploadPayload payload) {
         LOGGER.info("uploadProjectInfo, payload = [{}]", payload);
-        ProjectDto projectEntity = projectInfoService.uploadProjectInfo(payload);
-        return JsonResult.succ(projectEntity);
+        ProjectInfoDto projectInfoDto = projectInfoService.uploadProjectInfo(payload);
+        return JsonResult.succ(projectInfoDto);
     }
 }
