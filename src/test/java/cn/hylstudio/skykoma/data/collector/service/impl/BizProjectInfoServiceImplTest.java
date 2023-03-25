@@ -33,7 +33,6 @@ class BizProjectInfoServiceImplTest extends BootTests {
         String fileContents = Files.readString(Paths.get("D:/1.json"));
         Gson gson = new Gson();
         ProjectInfoUploadPayload projectInfoUploadPayload = gson.fromJson(fileContents, ProjectInfoUploadPayload.class);
-        ProjectInfoDto projectDto = bizProjectInfoService.uploadProjectInfo(projectInfoUploadPayload);
-        LOGGER.info("uploadProjectInfo, fileContents = [{}], gson = [{}], projectInfoUploadPayload = [{}], projectDto = [{}]", fileContents, gson, projectInfoUploadPayload, projectDto);
+        bizProjectInfoService.updateProjectInfoAsync(projectInfoUploadPayload);
     }
 }

@@ -9,11 +9,7 @@ import java.util.List;
 @Data
 public class ModuleDto {
     private String name;
-    private List<FileDto> srcRoots;
-    private List<FileDto> testSrcRoots;
-    private List<FileDto> resRoots;
-    private List<FileDto> testResRoots;
-
+    private List<ModuleRootDto> roots;
     public ModuleDto() {
     }
 

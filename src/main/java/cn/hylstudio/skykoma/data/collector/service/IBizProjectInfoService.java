@@ -6,6 +6,7 @@ import cn.hylstudio.skykoma.data.collector.model.payload.ProjectInfoUploadPayloa
 
 public interface IBizProjectInfoService {
     ProjectInfoDto queryProject(ProjectInfoQueryPayload payload);
+    void updateProjectInfoAsync(ProjectInfoUploadPayload payload);
+    void updateProjectInfoSync(ProjectInfoUploadPayload payload);
 
-    ProjectInfoDto uploadProjectInfo(ProjectInfoUploadPayload payload);
 }

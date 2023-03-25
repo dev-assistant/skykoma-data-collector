@@ -17,6 +17,7 @@ public class FileDto {
     private String relativePath;
     private String absolutePath;
     private List<FileDto> subFiles;
+    private String psiFileJson;
 
     public FileDto() {
     }
