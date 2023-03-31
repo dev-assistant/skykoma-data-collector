@@ -31,10 +31,13 @@ public class PsiElementEntity {
     private Integer endOffset;
     @Relationship(type = "CONTAINS", direction = Relationship.Direction.OUTGOING)
     private List<PsiElementEntity> childElements;
+    @Property
+    private String qualifiedName;//psiClass,psiAnnotation
+    @Relationship(type = "HAS_ATTR", direction = Relationship.Direction.OUTGOING)
+    private List<AnnotationAttrEntity> attrs;
     @CreatedDate
     @Property
     private Long createdAt;
-
     @LastModifiedDate
     @Property
     private Long updatedAt;
@@ -62,4 +65,5 @@ public class PsiElementEntity {
             this.originText = v.get("originText").getAsString();
         }
     }
+
 }

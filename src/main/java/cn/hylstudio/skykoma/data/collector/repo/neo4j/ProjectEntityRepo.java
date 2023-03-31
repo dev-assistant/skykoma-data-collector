@@ -8,7 +8,10 @@ import org.springframework.data.neo4j.repository.query.Query;
 public interface ProjectEntityRepo extends Neo4jRepository<ProjectEntity, String> {
 //    ProjectEntity findByName(String projectName);
 //    ProjectEntity findByKey(String projectKey);
-
+    @Query("""  
+        MATCH (a:ProjectEntity {key: $projectKey})
+        RETURN a
+        """)
     ProjectEntityNodeProjection findProjectEntityNodeProjectionByKey(String projectKey);
 
     @Query("""

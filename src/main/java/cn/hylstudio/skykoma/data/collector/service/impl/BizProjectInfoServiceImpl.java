@@ -1,7 +1,9 @@
 package cn.hylstudio.skykoma.data.collector.service.impl;
 
+import cn.hylstudio.skykoma.data.collector.SkykomaConstants;
 import cn.hylstudio.skykoma.data.collector.entity.neo4j.*;
 import cn.hylstudio.skykoma.data.collector.entity.neo4j.projection.ProjectEntityNodeProjection;
+import cn.hylstudio.skykoma.data.collector.entity.neo4j.projection.ScanRecordEntityProjection;
 import cn.hylstudio.skykoma.data.collector.ex.BizException;
 import cn.hylstudio.skykoma.data.collector.model.*;
 import cn.hylstudio.skykoma.data.collector.model.payload.ProjectInfoQueryPayload;
@@ -86,8 +88,9 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
             projectEntityNodeProjection = new ProjectEntityNodeProjection(entity);
 //            throw new BizException(BizCode.NOT_FOUND, "project not exists");
         }
-        ScanRecordEntity scanRecordEntity = scanEntityRepo.findByScanId(scanId);
-        if (scanRecordEntity == null) {
+        ScanRecordEntityProjection scanRecordEntityProjection = scanEntityRepo.findScanRecordEntityProjectionByScanId(scanId);
+        ScanRecordEntity scanRecordEntity = null;
+        if (scanRecordEntityProjection == null) {
             scanRecordEntity = new ScanRecordEntity();
             scanRecordEntity.setScanId(scanId);
             LOGGER.info("uploadProjectInfo, scanRecord not exists, gen new ScanEntity = [{}]", scanRecordEntity);
@@ -190,6 +193,11 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         scanPsiFiles(scanId, psiFiles);
         long duration = System.currentTimeMillis() - begin;
         LOGGER.info("calculateRelations, scanPsiFiles end, scanId = [{}], duration = {}ms", scanId, duration);
+        begin = System.currentTimeMillis();
+        LOGGER.info("calculateRelations, connectClassAndMethodAnnotations begin, scanId = [{}]", scanId);
+        psiElementEntityRepo.connectClassAndMethodAnnotations(scanId);
+        duration = System.currentTimeMillis() - begin;
+        LOGGER.info("calculateRelations, connectClassAndMethodAnnotations end, scanId = [{}], duration = {}ms", scanId, duration);
     }
 
     private void scanPsiFiles(String scanId, List<FileDto> psiFiles) {
@@ -264,10 +272,26 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
                 tmp.add(convertToPsiElementEntity(childElement));
             }
         }
+        parseBasicInfo(psiElementEntity, v);
+        String className = psiElementEntity.getClassName();
+        if (SkykomaConstants.PSI_CLASS_IMPL.equals(className)) {
+            psiElementEntity.setQualifiedName(v.get("qualifiedName").getAsString());
+        } else if (SkykomaConstants.PSI_ANNOTATION_IMPL.equals(className)) {
+            psiElementEntity.setQualifiedName(v.get("qualifiedName").getAsString());
+            JsonArray attributesArr = v.get("attributes").getAsJsonArray();
+            ArrayList<AnnotationAttrEntity> attrs = new ArrayList<>(attributesArr.size());
+            for (JsonElement attribute : attributesArr) {
+                attrs.add(new AnnotationAttrEntity(attribute));
+            }
+            psiElementEntity.setAttrs(attrs);
+        }
+        return psiElementEntity;
+    }
+
+    private static void parseBasicInfo(PsiElementEntity psiElementEntity, JsonObject v) {
         psiElementEntity.setClassName(v.get("className").getAsString());
         psiElementEntity.setStartOffset(v.get("startOffset").getAsInt());
         psiElementEntity.setEndOffset(v.get("endOffset").getAsInt());
         psiElementEntity.setOriginText(v.get("originText").getAsString());
-        return psiElementEntity;
     }
 }

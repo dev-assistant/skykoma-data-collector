@@ -2,7 +2,7 @@ package cn.hylstudio.skykoma.data.collector.entity.neo4j.projection;
 
 import cn.hylstudio.skykoma.data.collector.entity.neo4j.ProjectEntity;
 import lombok.Data;
-import org.springframework.data.neo4j.core.schema.Property;
+
 @Data
 public class ProjectEntityNodeProjection {
 
@@ -13,6 +13,10 @@ public class ProjectEntityNodeProjection {
     private Long updatedAt;
 
     public ProjectEntityNodeProjection() {
+    }
+
+    public ProjectEntityNodeProjection(String key) {
+        this.key = key;
     }
 
     public ProjectEntityNodeProjection(ProjectEntity entity) {
