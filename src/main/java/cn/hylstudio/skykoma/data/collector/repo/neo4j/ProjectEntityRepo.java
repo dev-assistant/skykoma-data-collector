@@ -26,7 +26,7 @@ public interface ProjectEntityRepo extends Neo4jRepository<ProjectEntity, String
     void addScanRecordRel(String projectEntityId, String scanRecordEntityId);
     @Query("""
             MATCH (scanRecord:ScanRecordEntity)-[:CONTAINS]->(:ModuleEntity)-[:MODULE_ROOT]->(moduleRoot:FileEntity)
-            MATCH (srcRoot:FileEntity)
+            MATCH (scanRecord)-[:ROOT_AT]->(:FileEntity)-[:CONTAINS*1..]->(srcRoot:FileEntity)
             WHERE
             scanRecord.scanId = $scanId AND
             moduleRoot.relativePath = srcRoot.relativePath AND

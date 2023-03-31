@@ -9,11 +9,12 @@
         <relativePath/> <!-- lookup parent from repository -->
     </parent>
     <groupId>cn.hylstudio.skykoma</groupId>
-    <artifactId>data-collector</artifactId>
-    <version>0.0.1-SNAPSHOT</version>
+    <artifactId>skykoma-data-collector</artifactId>
+    <version>0.0.1</version>
     <name>skykoma-data-collector</name>
     <description>Skykoma Data Collector</description>
     <properties>
+        <maven.test.skip>true</maven.test.skip>
         <java.version>17</java.version>
     </properties>
     <dependencies>

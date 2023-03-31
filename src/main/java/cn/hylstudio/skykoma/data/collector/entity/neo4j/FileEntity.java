@@ -31,6 +31,8 @@ public class FileEntity {
     private String absolutePath;
     @Relationship(type = "CONTAINS", direction = Relationship.Direction.OUTGOING)
     private List<FileEntity> subFiles;
+    @Relationship(type = "HAS_PSI_ELEMENTS", direction = Relationship.Direction.OUTGOING)
+    private List<PsiElementEntity> psiElements;
     @CreatedDate
     @Property
     private Long createdAt;

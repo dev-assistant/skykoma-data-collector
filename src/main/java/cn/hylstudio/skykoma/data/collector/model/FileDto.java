@@ -12,6 +12,8 @@ import java.util.stream.Collectors;
 
 @Data
 public class FileDto {
+    public static final String TYPE_FOLDER = "folder";
+    public static final String TYPE_FILE = "file";
     private String name;
     private String type;//file folder
     private String relativePath;

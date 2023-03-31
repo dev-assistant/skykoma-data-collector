@@ -8,6 +8,10 @@ import cn.hylstudio.skykoma.data.collector.model.payload.ProjectInfoQueryPayload
 import cn.hylstudio.skykoma.data.collector.model.payload.ProjectInfoUploadPayload;
 import cn.hylstudio.skykoma.data.collector.repo.neo4j.*;
 import cn.hylstudio.skykoma.data.collector.service.IBizProjectInfoService;
+import com.google.gson.JsonArray;
+import com.google.gson.JsonElement;
+import com.google.gson.JsonObject;
+import com.google.gson.JsonParser;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -18,7 +22,11 @@ import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Predicate;
+import java.util.stream.Collectors;
 
 @Service
 public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
@@ -35,6 +43,8 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
     private VcsEntityRepo vcsEntityRepo;
     @Autowired
     private ScanEntityRepo scanEntityRepo;
+    @Autowired
+    private PsiElementEntityRepo psiElementEntityRepo;
 
     @Override
     public ProjectInfoDto queryProject(ProjectInfoQueryPayload payload) {
@@ -168,7 +178,96 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
 
     private void calculateRelations(ScanRecordEntity scanRecordEntity, ProjectInfoUploadPayload payload) {
         String scanId = payload.getScanId();
+        LOGGER.info("calculateRelations, connect module roots to folders begin, scanId = [{}]", scanId);
         projectEntityRepo.symbolLinkModuleRootToFileTree(scanId);
-        LOGGER.info("calculateRelations, connect module roots to folders, scanId = [{}]", scanId);
+        LOGGER.info("calculateRelations, connect module roots to folders end, scanId = [{}]", scanId);
+        ProjectInfoDto projectInfoDto = payload.getProjectInfoDto();
+        FileDto rootFolder = projectInfoDto.getRootFolder();
+        //TODO 插件扩展
+        long begin = System.currentTimeMillis();
+        LOGGER.info("calculateRelations, scanPsiFiles begin, scanId = [{}]", scanId);
+        List<FileDto> psiFiles = scanFileRecursively(new ArrayList<>(), rootFolder, v -> StringUtils.hasText(v.getPsiFileJson()));
+        scanPsiFiles(scanId, psiFiles);
+        long duration = System.currentTimeMillis() - begin;
+        LOGGER.info("calculateRelations, scanPsiFiles end, scanId = [{}], duration = {}ms", scanId, duration);
+    }
+
+    private void scanPsiFiles(String scanId, List<FileDto> psiFiles) {
+        int size = psiFiles.size();
+        AtomicInteger count = new AtomicInteger(1);
+        psiFiles.parallelStream().forEach(fileDto -> {
+            long begin = System.currentTimeMillis();
+            String psiFileJson = fileDto.getPsiFileJson();
+            processPsiFileJson(scanId, fileDto, psiFileJson);
+            long duration = System.currentTimeMillis() - begin;
+            LOGGER.info("processPsiFileJson {}/{}, path = [{}], psiFileJson.length = [{}], duration = {}ms",
+                    count.getAndIncrement(), size, fileDto.getRelativePath(), psiFileJson.length(), duration);
+        });
+    }
+
+    private List<FileDto> scanFileRecursively(List<FileDto> fileDtos, FileDto file, Predicate<FileDto> predicate) {
+        String type = file.getType();
+        LOGGER.info("scanFileRecursively folder, file = [{}], type = [{}]", file.getName(), type);
+        if (FileDto.TYPE_FOLDER.equals(type)) {
+            List<FileDto> subFiles = file.getSubFiles();
+            if (!CollectionUtils.isEmpty(subFiles)) {
+                for (FileDto fileDto : subFiles) {
+                    fileDtos = scanFileRecursively(fileDtos, fileDto, predicate);
+                }
+            } else {
+                LOGGER.info("scanFileRecursively empty folder, file = [{}], type = [{}]", file.getName(), type);
+            }
+        } else if (FileDto.TYPE_FILE.equals(type)) {
+            if (predicate.test(file)) {
+                fileDtos.add(file);
+            } else {
+                LOGGER.info("scanFileRecursively skip, file = [{}], type = [{}]", file.getName(), type);
+            }
+        } else {
+            LOGGER.info("scanFileRecursively unknown file type, file = [{}], type = [{}]", file.getName(), type);
+        }
+        return fileDtos;
+    }
+
+    private void processPsiFileJson(String scanId, FileDto file, String psiFileJson) {
+
+        String relativePath = file.getRelativePath();
+        FileEntity fileEntity = fileEntityRepo.findByScanIdAndRelativePath(scanId, relativePath);
+        if (fileEntity == null) {
+            LOGGER.info("processPsiFileJson fileEntity not found, scanId = [{}], path = [{}]", scanId, file.getRelativePath());
+            return;
+        }
+        String fileEntityId = fileEntity.getId();
+        JsonElement psiFile = JsonParser.parseString(psiFileJson);
+        JsonArray rootElements = psiFile.getAsJsonArray();
+        List<PsiElementEntity> psiElementRoots = new ArrayList<>(rootElements.size());
+        for (JsonElement rootElement : rootElements) {
+            PsiElementEntity psiElement = convertToPsiElementEntity(rootElement);
+            psiElementRoots.add(psiElement);
+        }
+        psiElementRoots = psiElementEntityRepo.saveAll(psiElementRoots);
+        List<String> psiElementIds = psiElementRoots.stream().map(PsiElementEntity::getId).collect(Collectors.toList());
+        psiElementEntityRepo.attachToFileEntity(scanId, fileEntityId, psiElementIds);
+    }
+
+    private PsiElementEntity convertToPsiElementEntity(JsonElement psiElement) {
+        PsiElementEntity psiElementEntity = new PsiElementEntity();
+        JsonObject v = psiElement.getAsJsonObject();
+        JsonArray childElements = v.get("childElements").getAsJsonArray();
+        psiElementEntity.setChildElements(Collections.emptyList());
+        int childSize = 0;
+        if (childElements != null && childElements.size() > 0) {
+            childSize = childElements.size();
+            List<PsiElementEntity> tmp = new ArrayList<>(childSize);
+            psiElementEntity.setChildElements(tmp);
+            for (JsonElement childElement : childElements) {
+                tmp.add(convertToPsiElementEntity(childElement));
+            }
+        }
+        psiElementEntity.setClassName(v.get("className").getAsString());
+        psiElementEntity.setStartOffset(v.get("startOffset").getAsInt());
+        psiElementEntity.setEndOffset(v.get("endOffset").getAsInt());
+        psiElementEntity.setOriginText(v.get("originText").getAsString());
+        return psiElementEntity;
     }
 }
