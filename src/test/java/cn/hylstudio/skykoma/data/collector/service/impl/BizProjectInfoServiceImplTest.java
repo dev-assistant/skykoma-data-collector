@@ -6,6 +6,7 @@ import cn.hylstudio.skykoma.data.collector.model.ProjectInfoDto;
 import cn.hylstudio.skykoma.data.collector.model.payload.ProjectInfoQueryPayload;
 import cn.hylstudio.skykoma.data.collector.model.payload.ProjectInfoUploadPayload;
 import cn.hylstudio.skykoma.data.collector.repo.neo4j.FileEntityRepo;
+import cn.hylstudio.skykoma.data.collector.repo.neo4j.PsiElementEntityRepo;
 import cn.hylstudio.skykoma.data.collector.service.IBizProjectInfoService;
 import com.google.gson.Gson;
 import org.junit.jupiter.api.Test;
@@ -18,6 +19,8 @@ class BizProjectInfoServiceImplTest extends BootTests {
     @Autowired
     private IBizProjectInfoService bizProjectInfoService;
     @Autowired
+    private PsiElementEntityRepo psiElementEntityRepo;
+    @Autowired
     private FileEntityRepo fileEntityRepo;
 
     @Test
@@ -29,6 +32,7 @@ class BizProjectInfoServiceImplTest extends BootTests {
         ProjectInfoDto projectInfoDto = bizProjectInfoService.queryProject(payload);
         LOGGER.info("testQueryProject, payload = [{}], projectInfoDto = [{}]", payload, projectInfoDto);
     }
+
     @Test
     void uploadProjectInfo() throws Exception {
         String fileContents = Files.readString(Paths.get("D:/1.json"));
@@ -36,11 +40,19 @@ class BizProjectInfoServiceImplTest extends BootTests {
         ProjectInfoUploadPayload projectInfoUploadPayload = gson.fromJson(fileContents, ProjectInfoUploadPayload.class);
         bizProjectInfoService.updateProjectInfoAsync(projectInfoUploadPayload);
     }
+
     @Test
-    public void testQueryFile(){
+    public void testQueryFile() {
         String scanId = "335b801282f94e9cb4e7e8bd3952f65b";
         String relativePath = "src/main/java/com/iqiyi/hotchat/account/util/ImageHandleHelper.java";
         FileEntity fileEntity = fileEntityRepo.findByScanIdAndRelativePath(scanId, relativePath);
         LOGGER.info("testQueryFile, scanId = [{}], relativePath = [{}], fileEntity = [{}]", scanId, relativePath, fileEntity);
+    }
+
+    @Test
+    public void testConnectMethodToApiEndpoint() {
+        String scanId = "5779c77d91f149f6bc99bc68251c9632";
+        psiElementEntityRepo.connectMethodToApiEndpoint(scanId);
+        LOGGER.info("testConnectMethodToApiEndpoint, scanId = [{}]", scanId);
     }
 }

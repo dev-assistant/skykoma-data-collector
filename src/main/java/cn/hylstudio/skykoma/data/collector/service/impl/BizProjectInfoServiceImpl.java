@@ -193,11 +193,18 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         scanPsiFiles(scanId, psiFiles);
         long duration = System.currentTimeMillis() - begin;
         LOGGER.info("calculateRelations, scanPsiFiles end, scanId = [{}], duration = {}ms", scanId, duration);
+
         begin = System.currentTimeMillis();
         LOGGER.info("calculateRelations, connectClassAndMethodAnnotations begin, scanId = [{}]", scanId);
         psiElementEntityRepo.connectClassAndMethodAnnotations(scanId);
         duration = System.currentTimeMillis() - begin;
         LOGGER.info("calculateRelations, connectClassAndMethodAnnotations end, scanId = [{}], duration = {}ms", scanId, duration);
+
+        begin = System.currentTimeMillis();
+        LOGGER.info("calculateRelations, connectMethodToApiEndpoint begin, scanId = [{}]", scanId);
+        psiElementEntityRepo.connectMethodToApiEndpoint(scanId);
+        duration = System.currentTimeMillis() - begin;
+        LOGGER.info("calculateRelations, connectMethodToApiEndpoint end, scanId = [{}], duration = {}ms", scanId, duration);
     }
 
     private void scanPsiFiles(String scanId, List<FileDto> psiFiles) {
