@@ -14,11 +14,17 @@ import java.util.List;
 @NoArgsConstructor
 public class ScanRecordEntity {
 
+    public static final String STATUS_UPLOAD = "UPLOAED";
+    public static final String STATUS_SCANNING = "SCANNING";
+    public static final String STATUS_FINISHED = "FINISHED";
+
     @Id
     @GeneratedValue(generatorClass = UUIDStringGenerator.class)
     private String id;
     @Property
     private String scanId;
+    @Property
+    private String status;
     @Relationship(type = "CONTAINS", direction = Relationship.Direction.OUTGOING)
     private List<ModuleEntity> modules;
     @Relationship(type = "ROOT_AT", direction = Relationship.Direction.OUTGOING)

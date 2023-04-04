@@ -32,7 +32,7 @@ public class SkykomaConstants {
             SkykomaConstants.CONTROLLER_ANNOTATION_CLASS,
             SkykomaConstants.REST_CONTROLLER_ANNOTATION_CLASS
     );
-    public static final String PSI_CLASS_IMPL = "com.intellij.psi.impl.source.PsiClassImpl";
-    public static final String PSI_ANNOTATION_IMPL = "com.intellij.psi.impl.source.tree.java.PsiAnnotationImpl";
+    public static final String PSI_ELEMENT_TYPE_CLASS = "Class";
+    public static final String PSI_ELEMENT_TYPE_ANNOTATION = "Annotation";
 
 }

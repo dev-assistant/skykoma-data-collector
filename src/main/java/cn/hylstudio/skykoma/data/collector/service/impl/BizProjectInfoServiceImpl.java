@@ -22,7 +22,12 @@ import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
+import org.springframework.core.io.Resource;
+import org.springframework.core.io.ResourceLoader;
+import com.google.gson.Gson;
 
+import java.io.File;
+import java.io.FileWriter;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -47,6 +52,10 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
     private ScanEntityRepo scanEntityRepo;
     @Autowired
     private PsiElementEntityRepo psiElementEntityRepo;
+    @Autowired
+    private ResourceLoader resourceLoader;
+    @Autowired
+    private Gson gson;
 
     @Override
     public ProjectInfoDto queryProject(ProjectInfoQueryPayload payload) {
@@ -79,28 +88,41 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
     @Override
     public void updateProjectInfoSync(ProjectInfoUploadPayload payload) {
         String scanId = payload.getScanId();
+        if (!StringUtils.hasText(scanId)) {
+            throw new BizException(BizCode.WRONG_PARAMS, "scanId empty");
+        }
         ProjectInfoDto projectInfoDto = payload.getProjectInfoDto();
+        if (projectInfoDto == null) {
+            throw new BizException(BizCode.WRONG_PARAMS, "projectInfoDto empty");
+        }
         String projectKey = projectInfoDto.getKey();
-        ProjectEntityNodeProjection projectEntityNodeProjection = projectEntityRepo.findProjectEntityNodeProjectionByKey(projectKey);
+        if (!StringUtils.hasText(projectKey)) {
+            throw new BizException(BizCode.WRONG_PARAMS, "projectId empty");
+        }
+        ProjectEntityNodeProjection projectEntityNodeProjection = projectEntityRepo
+                .findProjectEntityNodeProjectionByKey(projectKey);
         if (projectEntityNodeProjection == null) {
             ProjectEntity entity = new ProjectEntity(projectInfoDto);
             entity = projectEntityRepo.save(entity);
             projectEntityNodeProjection = new ProjectEntityNodeProjection(entity);
-//            throw new BizException(BizCode.NOT_FOUND, "project not exists");
+            // throw new BizException(BizCode.NOT_FOUND, "project not exists");
         }
-        ScanRecordEntityProjection scanRecordEntityProjection = scanEntityRepo.findScanRecordEntityProjectionByScanId(scanId);
+        ScanRecordEntityProjection scanRecordEntityProjection = scanEntityRepo
+                .findScanRecordEntityProjectionByScanId(scanId);
         ScanRecordEntity scanRecordEntity = null;
         if (scanRecordEntityProjection == null) {
             scanRecordEntity = new ScanRecordEntity();
             scanRecordEntity.setScanId(scanId);
+            scanRecordEntity.setStatus(ScanRecordEntity.STATUS_UPLOAD);
             LOGGER.info("uploadProjectInfo, scanRecord not exists, gen new ScanEntity = [{}]", scanRecordEntity);
         }
+        scanRecordEntity = scanEntityRepo.save(scanRecordEntity);
         VCSEntityDto vcsEntityDto = projectInfoDto.getVcsEntityDto();
         if (vcsEntityDto == null) {
             throw new BizException(BizCode.WRONG_PARAMS, "vcsEntityDto empty");
         }
         String path = vcsEntityDto.getPath();
-        //vcs info process
+        // vcs info process
         VCSEntity vcsEntity = vcsEntityRepo.findByPath(path);
         if (vcsEntity == null) {
             vcsEntity = new VCSEntity(vcsEntityDto);
@@ -109,7 +131,9 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         String vcsEntityId = vcsEntity.getId();
         String projectEntityId = projectEntityNodeProjection.getId();
         projectEntityRepo.updateVcsEntity(projectEntityId, vcsEntityId);
-        //scanRecord process
+        scanRecordEntity.setStatus(ScanRecordEntity.STATUS_SCANNING);
+        scanEntityRepo.updateStatus(scanId, ScanRecordEntity.STATUS_FINISHED);
+        // scanRecord process
         List<ModuleDto> moduleDtos = projectInfoDto.getModules();
         if (CollectionUtils.isEmpty(moduleDtos)) {
             throw new BizException(BizCode.WRONG_PARAMS, "modules empty");
@@ -125,6 +149,8 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         projectEntityRepo.addScanRecordRel(projectEntityId, scanRecordEntityId);
         LOGGER.info("uploadProjectInfo, saved projectEntity, projectId = [{}]", projectEntityId);
         calculateRelations(scanRecordEntity, payload);
+        scanEntityRepo.updateStatus(scanId, ScanRecordEntity.STATUS_FINISHED);
+        scanRecordEntity.setStatus(ScanRecordEntity.STATUS_FINISHED);
     }
 
     private List<ModuleEntity> saveModuleEntities(List<ModuleDto> moduleDtos) {
@@ -145,7 +171,8 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
             moduleEntity.setRoots(rels);
             moduleEntity = moduleEntityRepo.save(moduleEntity);
             long duration = System.currentTimeMillis() - start;
-            LOGGER.info("saveModuleEntities finished {}/{}, name = [{}], duration = {}ms", i + 1, moduleDtos.size(), name, duration);
+            LOGGER.info("saveModuleEntities finished {}/{}, name = [{}], duration = {}ms", i + 1, moduleDtos.size(),
+                    name, duration);
             moduleEntities.add(moduleEntity);
         }
         return moduleEntities;
@@ -186,10 +213,11 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         LOGGER.info("calculateRelations, connect module roots to folders end, scanId = [{}]", scanId);
         ProjectInfoDto projectInfoDto = payload.getProjectInfoDto();
         FileDto rootFolder = projectInfoDto.getRootFolder();
-        //TODO 插件扩展
+        // TODO 插件扩展
         long begin = System.currentTimeMillis();
         LOGGER.info("calculateRelations, scanPsiFiles begin, scanId = [{}]", scanId);
-        List<FileDto> psiFiles = scanFileRecursively(new ArrayList<>(), rootFolder, v -> StringUtils.hasText(v.getPsiFileJson()));
+        List<FileDto> psiFiles = scanFileRecursively(new ArrayList<>(), rootFolder,
+                v -> StringUtils.hasText(v.getPsiFileJson()));
         scanPsiFiles(scanId, psiFiles);
         long duration = System.currentTimeMillis() - begin;
         LOGGER.info("calculateRelations, scanPsiFiles end, scanId = [{}], duration = {}ms", scanId, duration);
@@ -198,13 +226,15 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         LOGGER.info("calculateRelations, connectClassAndMethodAnnotations begin, scanId = [{}]", scanId);
         psiElementEntityRepo.connectClassAndMethodAnnotations(scanId);
         duration = System.currentTimeMillis() - begin;
-        LOGGER.info("calculateRelations, connectClassAndMethodAnnotations end, scanId = [{}], duration = {}ms", scanId, duration);
+        LOGGER.info("calculateRelations, connectClassAndMethodAnnotations end, scanId = [{}], duration = {}ms", scanId,
+                duration);
 
         begin = System.currentTimeMillis();
         LOGGER.info("calculateRelations, connectMethodToApiEndpoint begin, scanId = [{}]", scanId);
         psiElementEntityRepo.connectMethodToApiEndpoint(scanId);
         duration = System.currentTimeMillis() - begin;
-        LOGGER.info("calculateRelations, connectMethodToApiEndpoint end, scanId = [{}], duration = {}ms", scanId, duration);
+        LOGGER.info("calculateRelations, connectMethodToApiEndpoint end, scanId = [{}], duration = {}ms", scanId,
+                duration);
     }
 
     private void scanPsiFiles(String scanId, List<FileDto> psiFiles) {
@@ -249,7 +279,8 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         String relativePath = file.getRelativePath();
         FileEntity fileEntity = fileEntityRepo.findByScanIdAndRelativePath(scanId, relativePath);
         if (fileEntity == null) {
-            LOGGER.info("processPsiFileJson fileEntity not found, scanId = [{}], path = [{}]", scanId, file.getRelativePath());
+            LOGGER.info("processPsiFileJson fileEntity not found, scanId = [{}], path = [{}]", scanId,
+                    file.getRelativePath());
             return;
         }
         String fileEntityId = fileEntity.getId();
@@ -257,7 +288,7 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         JsonArray rootElements = psiFile.getAsJsonArray();
         List<PsiElementEntity> psiElementRoots = new ArrayList<>(rootElements.size());
         for (JsonElement rootElement : rootElements) {
-            PsiElementEntity psiElement = convertToPsiElementEntity(rootElement);
+            PsiElementEntity psiElement = convertToPsiElementEntity(scanId, rootElement);
             psiElementRoots.add(psiElement);
         }
         psiElementRoots = psiElementEntityRepo.saveAll(psiElementRoots);
@@ -265,7 +296,7 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         psiElementEntityRepo.attachToFileEntity(scanId, fileEntityId, psiElementIds);
     }
 
-    private PsiElementEntity convertToPsiElementEntity(JsonElement psiElement) {
+    private PsiElementEntity convertToPsiElementEntity(String scanId, JsonElement psiElement) {
         PsiElementEntity psiElementEntity = new PsiElementEntity();
         JsonObject v = psiElement.getAsJsonObject();
         JsonArray childElements = v.get("childElements").getAsJsonArray();
@@ -276,29 +307,136 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
             List<PsiElementEntity> tmp = new ArrayList<>(childSize);
             psiElementEntity.setChildElements(tmp);
             for (JsonElement childElement : childElements) {
-                tmp.add(convertToPsiElementEntity(childElement));
+                tmp.add(convertToPsiElementEntity(scanId, childElement));
             }
         }
         parseBasicInfo(psiElementEntity, v);
-        String className = psiElementEntity.getClassName();
-        if (SkykomaConstants.PSI_CLASS_IMPL.equals(className)) {
+        String psiType = psiElementEntity.getPsiType();
+        if (SkykomaConstants.PSI_ELEMENT_TYPE_CLASS.equals(psiType)) {
+            String qualifiedName = v.get("qualifiedName").getAsString();
+            psiElementEntity.setQualifiedName(qualifiedName);
+            ClassEntity classEntity = parseClassEntity(v);
+            if(classEntity != null){
+                psiElementEntity.setClassInfo(classEntity);
+            }
+        } else if (SkykomaConstants.PSI_ELEMENT_TYPE_ANNOTATION.equals(psiType)) {
             psiElementEntity.setQualifiedName(v.get("qualifiedName").getAsString());
-        } else if (SkykomaConstants.PSI_ANNOTATION_IMPL.equals(className)) {
-            psiElementEntity.setQualifiedName(v.get("qualifiedName").getAsString());
+            JsonObject annotationClassObj = v.get("annotationClass").getAsJsonObject();
+            ClassEntity classEntity = parseClassEntity(annotationClassObj);
+            if(classEntity != null){
+                psiElementEntity.setClassInfo(classEntity);
+            }
             JsonArray attributesArr = v.get("attributes").getAsJsonArray();
             ArrayList<AnnotationAttrEntity> attrs = new ArrayList<>(attributesArr.size());
             for (JsonElement attribute : attributesArr) {
                 attrs.add(new AnnotationAttrEntity(attribute));
             }
             psiElementEntity.setAttrs(attrs);
+        } else {
+
         }
         return psiElementEntity;
     }
 
+    private static ClassEntity parseClassEntity(JsonObject v) {
+        if(v==null){
+            return null;
+        }
+        JsonElement qualifiedNameObj = v.get("qualifiedName");
+        if(qualifiedNameObj == null){
+            return null;
+        }
+        String qualifiedName = qualifiedNameObj.getAsString();
+        if(!StringUtils.hasText(qualifiedName)||"unknown".equals(qualifiedName)){
+            return null;
+        }
+        ClassEntity classEntity = new ClassEntity();
+        classEntity.setQualifiedName(qualifiedName);
+        String canonicalText = v.get("canonicalText").getAsString();
+        classEntity.setCanonicalText(canonicalText);
+        Boolean isInterface = v.get("isInterface").getAsBoolean();
+        classEntity.setIsInterface(isInterface);
+        JsonArray superTypeCanonicalTextsArr = v.get("superTypeCanonicalTexts").getAsJsonArray();
+        List<String> superTypeCanonicalTexts = new ArrayList<>(superTypeCanonicalTextsArr.size());
+        for (JsonElement e : superTypeCanonicalTextsArr) {
+            superTypeCanonicalTexts.add(e.getAsString());
+        }
+        classEntity.setSuperTypeCanonicalTexts(superTypeCanonicalTexts);
+        if (isInterface) {
+            JsonArray extendsClassListArr = v.get("extendsClassList").getAsJsonArray();
+            JsonArray extendsCanonicalTextsListArr = v.get("extendsCanonicalTextsList").getAsJsonArray();
+            JsonArray extendsSuperTypeCanonicalTextsListArr = v.get("extendsSuperTypeCanonicalTextsList")
+                    .getAsJsonArray();
+            List<ClassEntity> extendsClassList = new ArrayList<>(extendsClassListArr.size());
+            List<String> extendsCanonicalTextsList = new ArrayList<>(extendsCanonicalTextsListArr.size());
+            List<String> extendsSuperTypeCanonicalTextsList = new ArrayList<>(
+                    extendsSuperTypeCanonicalTextsListArr.size());
+            for (JsonElement e : extendsClassListArr) {
+                ClassEntity extendClassEntity = parseClassEntity(e.getAsJsonObject());
+                if(extendClassEntity!=null){
+                    extendsClassList.add(extendClassEntity);
+                }
+            }
+            List<ClassEntityParentRel> extendsListRels = extendsClassList.stream()
+                    .map(vv -> new ClassEntityParentRel(vv, "extend")).collect(Collectors.toList());
+            for (JsonElement e : extendsCanonicalTextsListArr) {
+                extendsCanonicalTextsList.add(e.getAsString());
+            }
+            for (JsonElement e : extendsSuperTypeCanonicalTextsListArr) {
+                extendsSuperTypeCanonicalTextsList.add(e.getAsString());
+            }
+            classEntity.setParents(extendsListRels);
+            classEntity.setExtendsCanonicalTextsList(extendsCanonicalTextsList);
+            classEntity.setExtendsSuperTypeCanonicalTextsList(extendsSuperTypeCanonicalTextsList);
+        } else {
+            ClassEntityParentRel extendRel = null;
+            JsonElement superClassObj = v.get("superClass");
+            if (superClassObj != null) {
+                ClassEntity superClassEntity = parseClassEntity(superClassObj.getAsJsonObject());
+                if(superClassEntity!=null){
+                    extendRel = new ClassEntityParentRel(superClassEntity, "extend");
+                }
+            }
+            JsonArray implementsListArr = v.get("implementsList").getAsJsonArray();
+            JsonArray implementsCanonicalTextsListArr = v.get("implementsCanonicalTextsList").getAsJsonArray();
+            JsonArray implementsSuperTypeCanonicalTextsListArr = v.get("implementsSuperTypeCanonicalTextsList")
+                    .getAsJsonArray();
+            List<ClassEntity> implementsList = new ArrayList<>(implementsListArr.size());
+            List<String> implementsCanonicalTextsList = new ArrayList<>(implementsCanonicalTextsListArr.size());
+            List<String> implementsSuperTypeCanonicalTextsList = new ArrayList<>(
+                    implementsSuperTypeCanonicalTextsListArr.size());
+            for (JsonElement e : implementsListArr) {
+                ClassEntity implementClassEntity = parseClassEntity(e.getAsJsonObject());
+                if(implementClassEntity != null){
+                    implementsList.add(implementClassEntity);
+                }
+            }
+            List<ClassEntityParentRel> implementListRels = implementsList.stream()
+                    .map(vv -> new ClassEntityParentRel(vv, "implement")).collect(Collectors.toList());
+            for (JsonElement e : implementsCanonicalTextsListArr) {
+                implementsCanonicalTextsList.add(e.getAsString());
+            }
+            for (JsonElement e : implementsSuperTypeCanonicalTextsListArr) {
+                implementsSuperTypeCanonicalTextsList.add(e.getAsString());
+            }
+            List<ClassEntityParentRel> parents = new ArrayList<>(implementsList.size() + 1);
+            if (extendRel != null) {
+                parents.add(extendRel);
+            }
+            parents.addAll(implementListRels);
+            classEntity.setParents(parents);
+            classEntity.setImplementsCanonicalTextsList(implementsCanonicalTextsList);
+            classEntity.setImplementsSuperTypeCanonicalTextsList(implementsSuperTypeCanonicalTextsList);
+        }
+        return classEntity;
+    }
+
     private static void parseBasicInfo(PsiElementEntity psiElementEntity, JsonObject v) {
+        psiElementEntity.setPsiType(v.get("psiType").getAsString());
         psiElementEntity.setClassName(v.get("className").getAsString());
         psiElementEntity.setStartOffset(v.get("startOffset").getAsInt());
         psiElementEntity.setEndOffset(v.get("endOffset").getAsInt());
         psiElementEntity.setOriginText(v.get("originText").getAsString());
     }
+
 }

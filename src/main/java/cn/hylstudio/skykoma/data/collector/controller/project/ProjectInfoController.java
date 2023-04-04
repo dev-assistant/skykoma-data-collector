@@ -74,6 +74,7 @@ public class ProjectInfoController extends AbstractController {
             Resource resource = resourceLoader.getResource("classpath:");
             File rootDir = resource.getFile();
             String rootPath = rootDir.getAbsolutePath();
+            // String rootPath = "";
             String fileName = "%s/%s.json".formatted(rootPath, System.currentTimeMillis());
             File file = new File(fileName);
             FileWriter fileWriter = new FileWriter(file);
@@ -81,7 +82,7 @@ public class ProjectInfoController extends AbstractController {
             fileWriter.flush();
             fileWriter.close();
         } catch (Exception e) {
-
+            LOGGER.info("debugJson error, e = [{}]", e.getMessage(), e);
         }
     }
 }

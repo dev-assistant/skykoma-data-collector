@@ -16,31 +16,29 @@ import java.util.List;
 
 @Node
 @Data
-public class PsiElementEntity {
+public class ClassEntity {
 
     @Id
     @GeneratedValue(generatorClass = UUIDStringGenerator.class)
     private String id;
     @Property
-    private String psiType; //Class Annotation unknown
+    private String qualifiedName;
     @Property
-    private String className;
+    private String canonicalText;
     @Property
-    private String originText;
+    private Boolean isInterface;
     @Property
-    private Integer startOffset;
+    private List<String> superTypeCanonicalTexts;
+    @Relationship(type = "HAS_PARENT", direction = Relationship.Direction.OUTGOING)
+    private List<ClassEntityParentRel> parents;
     @Property
-    private Integer endOffset;
-    @Relationship(type = "CONTAINS", direction = Relationship.Direction.OUTGOING)
-    private List<PsiElementEntity> childElements;
+    private List<String> extendsCanonicalTextsList;
     @Property
-    private String qualifiedName;//psiClass, psiAnnotation
-    @Relationship(type = "IS_CLASS", direction = Relationship.Direction.OUTGOING)
-    private ClassEntity classInfo;
-    // @Relationship(type = "HAS_ANNOTAION", direction = Relationship.Direction.OUTGOING)
-    // private List<AnnotationEntity> annotaions;
-    @Relationship(type = "HAS_ATTR", direction = Relationship.Direction.OUTGOING)
-    private List<AnnotationAttrEntity> attrs;
+    private List<String> extendsSuperTypeCanonicalTextsList;
+    @Property
+    private List<String> implementsCanonicalTextsList;
+    @Property
+    private List<String> implementsSuperTypeCanonicalTextsList;
     @CreatedDate
     @Property
     private Long createdAt;
@@ -48,7 +46,7 @@ public class PsiElementEntity {
     @Property
     private Long updatedAt;
 
-    public PsiElementEntity() {
+    public ClassEntity() {
 
     }
 
