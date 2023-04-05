@@ -35,9 +35,9 @@ public class PsiElementEntity {
     private List<PsiElementEntity> childElements;
     @Property
     private String qualifiedName;//psiClass, psiAnnotation
-    @Relationship(type = "IS_CLASS", direction = Relationship.Direction.OUTGOING)
-    private ClassEntity classInfo;
-    // @Relationship(type = "HAS_ANNOTAION", direction = Relationship.Direction.OUTGOING)
+//    @Relationship(type = "IS_CLASS", direction = Relationship.Direction.OUTGOING)
+//    private ClassEntity classInfo;
+    // @Relationship(type = "HAS_ANNOTATION", direction = Relationship.Direction.OUTGOING)
     // private List<AnnotationEntity> annotaions;
     @Relationship(type = "HAS_ATTR", direction = Relationship.Direction.OUTGOING)
     private List<AnnotationAttrEntity> attrs;
