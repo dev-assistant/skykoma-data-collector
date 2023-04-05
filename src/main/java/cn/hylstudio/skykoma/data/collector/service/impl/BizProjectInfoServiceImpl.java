@@ -15,15 +15,16 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.data.neo4j.core.Neo4jTemplate;
-import org.springframework.data.util.Pair;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.util.CollectionUtils;
 import org.springframework.util.StringUtils;
 
-import java.util.*;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.List;
 import java.util.concurrent.atomic.AtomicInteger;
-import java.util.function.BinaryOperator;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
 
@@ -211,20 +212,6 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         scanPsiFiles(scanId, psiFiles);
         long duration = System.currentTimeMillis() - begin;
         LOGGER.info("calculateRelations, scanPsiFiles end, scanId = [{}], duration = {}ms", scanId, duration);
-
-        begin = System.currentTimeMillis();
-        LOGGER.info("calculateRelations, connectClassAndMethodAnnotations begin, scanId = [{}]", scanId);
-        psiElementEntityRepo.connectClassAndMethodAnnotations(scanId);
-        duration = System.currentTimeMillis() - begin;
-        LOGGER.info("calculateRelations, connectClassAndMethodAnnotations end, scanId = [{}], duration = {}ms", scanId,
-                duration);
-
-        begin = System.currentTimeMillis();
-        LOGGER.info("calculateRelations, connectMethodToApiEndpoint begin, scanId = [{}]", scanId);
-        psiElementEntityRepo.connectMethodToApiEndpoint(scanId);
-        duration = System.currentTimeMillis() - begin;
-        LOGGER.info("calculateRelations, connectMethodToApiEndpoint end, scanId = [{}], duration = {}ms", scanId,
-                duration);
     }
 
     private void scanPsiFiles(String scanId, List<FileDto> psiFiles) {
@@ -241,16 +228,34 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
             List<String> psiElementIds = psiElementRoots.stream().map(PsiElementEntity::getId).collect(Collectors.toList());
             psiElementEntityRepo.attachToFileEntity(scanId, fileEntityId, psiElementIds);
             long duration = System.currentTimeMillis() - begin;
-            LOGGER.info("processPsiFileJson stage1 {}/{}, path = [{}], psiFileJson.length = [{}], duration = {}ms",
+            LOGGER.info("scanPsiFiles stage1 {}/{}, path = [{}], psiFileJson.length = [{}], duration = {}ms",
                     count.getAndIncrement(), size, fileDto.getRelativePath(), psiFileJson.length(), duration);
         });
         //stage2 存类的信息树，防止节点重复
-        long beginStage2 = System.currentTimeMillis();
+        long begin = System.currentTimeMillis();
         Collection<ClassEntity> classEntities = ClassEntity.getAllClassEntity(scanId);
-        LOGGER.info("processPsiFileJson stage2, saving classEntities, size = [{}]", classEntities.size());
+        LOGGER.info("scanPsiFiles stage2, saving classEntities, size = [{}]", classEntities.size());
         classEntities = classEntityRepo.saveAll(classEntities);
-        long durationStage2 = System.currentTimeMillis() - beginStage2;
-        LOGGER.info("processPsiFileJson stage2, duration = {}ms", durationStage2);
+        long duration = System.currentTimeMillis() - begin;
+        LOGGER.info("scanPsiFiles stage2, duration = {}ms", duration);
+        //stage3 类的信息关联到当前扫描记录
+        begin = System.currentTimeMillis();
+        LOGGER.info("scanPsiFiles stage3, attachClassEntityToScanRecord begin, scanId = [{}]", scanId);
+        classEntityRepo.attachClassEntityToScanRecord(scanId);
+        duration = System.currentTimeMillis() - begin;
+        LOGGER.info("scanPsiFiles stage3, attachClassEntityToScanRecord end, scanId = [{}], duration = {}ms", scanId, duration);
+        //stage4 连接类、方法上的注解简化后续查询
+        begin = System.currentTimeMillis();
+        LOGGER.info("scanPsiFiles stage4, connectClassAndMethodAnnotations begin, scanId = [{}]", scanId);
+        psiElementEntityRepo.connectClassAndMethodAnnotations(scanId);
+        duration = System.currentTimeMillis() - begin;
+        LOGGER.info("scanPsiFiles stage4, connectClassAndMethodAnnotations end, scanId = [{}], duration = {}ms", scanId, duration);
+        //stage5 连接方法上的Api入口并关联到当前扫描记录
+        begin = System.currentTimeMillis();
+        LOGGER.info("scanPsiFiles stage5, connectMethodToApiEndpoint begin, scanId = [{}]", scanId);
+        psiElementEntityRepo.connectMethodToApiEndpoint(scanId);
+        duration = System.currentTimeMillis() - begin;
+        LOGGER.info("scanPsiFiles stage5, connectMethodToApiEndpoint end, scanId = [{}], duration = {}ms", scanId, duration);
     }
 
     private List<FileDto> scanFileRecursively(List<FileDto> fileDtos, FileDto file, Predicate<FileDto> predicate) {
