@@ -234,28 +234,34 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         //stage2 存类的信息树，防止节点重复
         long begin = System.currentTimeMillis();
         Collection<ClassEntity> classEntities = ClassEntity.getAllClassEntity(scanId);
-        LOGGER.info("scanPsiFiles stage2, saving classEntities, size = [{}]", classEntities.size());
+        LOGGER.info("scanPsiFiles stage2, saving classEntities, scanId = [{}], size = [{}]", scanId, classEntities.size());
         classEntities = classEntityRepo.saveAll(classEntities);
         long duration = System.currentTimeMillis() - begin;
-        LOGGER.info("scanPsiFiles stage2, duration = {}ms", duration);
+        LOGGER.info("scanPsiFiles stage2, scanId = [{}], duration = {}ms",scanId, duration);
         //stage3 类的信息关联到当前扫描记录
         begin = System.currentTimeMillis();
         LOGGER.info("scanPsiFiles stage3, attachClassEntityToScanRecord begin, scanId = [{}]", scanId);
         classEntityRepo.attachClassEntityToScanRecord(scanId);
         duration = System.currentTimeMillis() - begin;
         LOGGER.info("scanPsiFiles stage3, attachClassEntityToScanRecord end, scanId = [{}], duration = {}ms", scanId, duration);
-        //stage4 连接类、方法上的注解简化后续查询
+        //stage4 psiType=Annotation的alias为AnnotationEntity
         begin = System.currentTimeMillis();
-        LOGGER.info("scanPsiFiles stage4, connectClassAndMethodAnnotations begin, scanId = [{}]", scanId);
-        psiElementEntityRepo.connectClassAndMethodAnnotations(scanId);
+        LOGGER.info("scanPsiFiles stage4, aliasElementToAnnotationEntity begin, scanId = [{}]", scanId);
+        psiElementEntityRepo.aliasElementToAnnotationEntity(scanId);
         duration = System.currentTimeMillis() - begin;
-        LOGGER.info("scanPsiFiles stage4, connectClassAndMethodAnnotations end, scanId = [{}], duration = {}ms", scanId, duration);
-        //stage5 连接方法上的Api入口并关联到当前扫描记录
+        LOGGER.info("scanPsiFiles stage4, aliasElementToAnnotationEntity end, scanId = [{}], duration = {}ms", scanId, duration);
+        //stage5 注解和它关联的对象简化后续查询
         begin = System.currentTimeMillis();
-        LOGGER.info("scanPsiFiles stage5, connectMethodToApiEndpoint begin, scanId = [{}]", scanId);
+        LOGGER.info("scanPsiFiles stage5, connectAllAnnotations begin, scanId = [{}]", scanId);
+        psiElementEntityRepo.connectAllAnnotations(scanId);
+        duration = System.currentTimeMillis() - begin;
+        LOGGER.info("scanPsiFiles stage5, connectAllAnnotations end, scanId = [{}], duration = {}ms", scanId, duration);
+        //stage6 连接方法上的Api入口并关联到当前扫描记录
+        begin = System.currentTimeMillis();
+        LOGGER.info("scanPsiFiles stage6, connectMethodToApiEndpoint begin, scanId = [{}]", scanId);
         psiElementEntityRepo.connectMethodToApiEndpoint(scanId);
         duration = System.currentTimeMillis() - begin;
-        LOGGER.info("scanPsiFiles stage5, connectMethodToApiEndpoint end, scanId = [{}], duration = {}ms", scanId, duration);
+        LOGGER.info("scanPsiFiles stage6, connectMethodToApiEndpoint end, scanId = [{}], duration = {}ms", scanId, duration);
     }
 
     private List<FileDto> scanFileRecursively(List<FileDto> fileDtos, FileDto file, Predicate<FileDto> predicate) {
@@ -459,11 +465,42 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
     }
 
     private static void parseBasicInfo(PsiElementEntity psiElementEntity, JsonObject v) {
-        psiElementEntity.setPsiType(v.get("psiType").getAsString());
-        psiElementEntity.setClassName(v.get("className").getAsString());
-        psiElementEntity.setStartOffset(v.get("startOffset").getAsInt());
-        psiElementEntity.setEndOffset(v.get("endOffset").getAsInt());
-        psiElementEntity.setOriginText(v.get("originText").getAsString());
+        String psiType = "unknown";
+        JsonElement psiTypeObj = v.get("psiType");
+        if (psiTypeObj != null) {
+            psiType = psiTypeObj.getAsString();
+        }
+        String className = "unknown";
+        JsonElement classNameObj = v.get("className");
+        if (classNameObj != null) {
+            className = classNameObj.getAsString();
+        }
+        Integer startOffset = 0;
+        JsonElement startOffsetObj = v.get("startOffset");
+        if (classNameObj != null) {
+            startOffset = startOffsetObj.getAsInt();
+        }
+        Integer endOffset = 0;
+        JsonElement endOffsetObj = v.get("endOffset");
+        if (endOffsetObj != null) {
+            endOffset = endOffsetObj.getAsInt();
+        }
+        String originText = "";
+        JsonElement originTextObj = v.get("originText");
+        if (originTextObj != null) {
+            originText = originTextObj.getAsString();
+        }
+        Integer lineNumber = 0;
+        JsonElement lineNumberObj = v.get("lineNum");
+        if (lineNumberObj != null) {
+            lineNumber = lineNumberObj.getAsInt();
+        }
+        psiElementEntity.setPsiType(psiType);
+        psiElementEntity.setClassName(className);
+        psiElementEntity.setStartOffset(startOffset);
+        psiElementEntity.setEndOffset(endOffset);
+        psiElementEntity.setOriginText(originText);
+        psiElementEntity.setLineNumber(lineNumber);
     }
 
 }

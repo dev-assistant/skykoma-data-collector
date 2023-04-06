@@ -12,7 +12,7 @@ public interface ClassEntityRepo extends Neo4jRepository<ClassEntity, String> {
     @Query("""
             MATCH (class:ClassEntity{scanId:$scanId})
             MATCH (scanRecord:ScanRecordEntity{scanId:$scanId})
-            MERGE (scanRecord)-[:HAS_CLASS]->(class)
+            MERGE (scanRecord)-[:CONTAINS]->(class)
             """)
     void attachClassEntityToScanRecord(String scanId);
 }

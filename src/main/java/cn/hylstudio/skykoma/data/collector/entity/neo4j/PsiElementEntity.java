@@ -31,6 +31,8 @@ public class PsiElementEntity {
     private Integer startOffset;
     @Property
     private Integer endOffset;
+    @Property
+    private Integer lineNumber;
     @Relationship(type = "CONTAINS", direction = Relationship.Direction.OUTGOING)
     private List<PsiElementEntity> childElements;
     @Property
