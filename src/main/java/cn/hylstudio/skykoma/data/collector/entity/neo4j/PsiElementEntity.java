@@ -1,22 +1,17 @@
 package cn.hylstudio.skykoma.data.collector.entity.neo4j;
 
-import com.google.gson.JsonArray;
-import com.google.gson.JsonElement;
-import com.google.gson.JsonObject;
 import lombok.Data;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.annotation.LastModifiedDate;
 import org.springframework.data.neo4j.core.schema.*;
 import org.springframework.data.neo4j.core.support.UUIDStringGenerator;
 
-import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 
 
 @Node
 @Data
-public class PsiElementEntity {
+public class PsiElementEntity {//AnnotationEntity, FieldEntity
 
     @Id
     @GeneratedValue(generatorClass = UUIDStringGenerator.class)
@@ -36,13 +31,17 @@ public class PsiElementEntity {
     @Relationship(type = "CONTAINS", direction = Relationship.Direction.OUTGOING)
     private List<PsiElementEntity> childElements;
     @Property
-    private String qualifiedName;//psiClass, psiAnnotation
-//    @Relationship(type = "IS_CLASS", direction = Relationship.Direction.OUTGOING)
-//    private ClassEntity classInfo;
-    // @Relationship(type = "HAS_ANNOTATION", direction = Relationship.Direction.OUTGOING)
-    // private List<AnnotationEntity> annotaions;
+    private String qualifiedName;//Class Annotation
+    //    @Relationship(type = "REFER_CLASS", direction = Relationship.Direction.OUTGOING)
+    //    private ClassEntity classInfo;
+    @Property
+    private String canonicalText;//Field type canonicalText
+    @Property
+    private String variableName;//Field
+    @Property
+    private Boolean hasInitializer;//Field
     @Relationship(type = "HAS_ATTR", direction = Relationship.Direction.OUTGOING)
-    private List<AnnotationAttrEntity> attrs;
+    private List<AnnotationAttrEntity> attrs;//Annotation
     @CreatedDate
     @Property
     private Long createdAt;

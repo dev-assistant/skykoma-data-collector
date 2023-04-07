@@ -237,7 +237,7 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         LOGGER.info("scanPsiFiles stage2, saving classEntities, scanId = [{}], size = [{}]", scanId, classEntities.size());
         classEntities = classEntityRepo.saveAll(classEntities);
         long duration = System.currentTimeMillis() - begin;
-        LOGGER.info("scanPsiFiles stage2, scanId = [{}], duration = {}ms",scanId, duration);
+        LOGGER.info("scanPsiFiles stage2, scanId = [{}], duration = {}ms", scanId, duration);
         //stage3 类的信息关联到当前扫描记录
         begin = System.currentTimeMillis();
         LOGGER.info("scanPsiFiles stage3, attachClassEntityToScanRecord begin, scanId = [{}]", scanId);
@@ -246,10 +246,12 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         LOGGER.info("scanPsiFiles stage3, attachClassEntityToScanRecord end, scanId = [{}], duration = {}ms", scanId, duration);
         //stage4 psiType=Annotation的alias为AnnotationEntity
         begin = System.currentTimeMillis();
-        LOGGER.info("scanPsiFiles stage4, aliasElementToAnnotationEntity begin, scanId = [{}]", scanId);
-        psiElementEntityRepo.aliasElementToAnnotationEntity(scanId);
+        LOGGER.info("scanPsiFiles stage4, aliasElementsEntity begin, scanId = [{}]", scanId);
+        psiElementEntityRepo.aliasElementsAnnotationEntity(scanId);
+        //stage4 psiType=Field的alias为FieldEntity
+        psiElementEntityRepo.aliasElementsFieldEntity(scanId);
         duration = System.currentTimeMillis() - begin;
-        LOGGER.info("scanPsiFiles stage4, aliasElementToAnnotationEntity end, scanId = [{}], duration = {}ms", scanId, duration);
+        LOGGER.info("scanPsiFiles stage4, aliasElementsEntity end, scanId = [{}], duration = {}ms", scanId, duration);
         //stage5 注解和它关联的对象简化后续查询
         begin = System.currentTimeMillis();
         LOGGER.info("scanPsiFiles stage5, connectAllAnnotations begin, scanId = [{}]", scanId);
@@ -324,31 +326,76 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         parseBasicInfo(psiElementEntity, v);
         String psiType = psiElementEntity.getPsiType();
         if (SkykomaConstants.PSI_ELEMENT_TYPE_CLASS.equals(psiType)) {
-            String qualifiedName = v.get("qualifiedName").getAsString();
-            psiElementEntity.setQualifiedName(qualifiedName);
-            ClassEntity classEntity = parseClassEntity(scanId, v);
-            if (classEntity != null) {
-//                psiElementEntity.setClassInfo(classEntity);
-                classEntity.mergePsiElements(new ClassEntityReferRel(psiElementEntity,"declare"));
-            }
+            processClass(scanId, psiElementEntity, v);
         } else if (SkykomaConstants.PSI_ELEMENT_TYPE_ANNOTATION.equals(psiType)) {
-            psiElementEntity.setQualifiedName(v.get("qualifiedName").getAsString());
-            JsonObject annotationClassObj = v.get("annotationClass").getAsJsonObject();
-            ClassEntity classEntity = parseClassEntity(scanId, annotationClassObj);
-            if (classEntity != null) {
-                classEntity.mergePsiElements(new ClassEntityReferRel(psiElementEntity,"refer"));
-//                psiElementEntity.setClassInfo(classEntity);
-            }
-            JsonArray attributesArr = v.get("attributes").getAsJsonArray();
-            ArrayList<AnnotationAttrEntity> attrs = new ArrayList<>(attributesArr.size());
-            for (JsonElement attribute : attributesArr) {
-                attrs.add(new AnnotationAttrEntity(attribute));
-            }
-            psiElementEntity.setAttrs(attrs);
+            processAnnotation(scanId, psiElementEntity, v);
+        } else if (SkykomaConstants.PSI_ELEMENT_TYPE_FIELD.equals(psiType)) {
+            processField(scanId, psiElementEntity, v);
+        } else if (SkykomaConstants.PSI_ELEMENT_TYPE_IDENTIFIER.equals(psiType)) {
+            processIdentifier(scanId, psiElementEntity, v);
+        } else if (SkykomaConstants.PSI_ELEMENT_TYPE_EXPRESSION.equals(psiType)) {
+            processExpression(scanId, psiElementEntity, v);
         } else {
 
         }
         return psiElementEntity;
+    }
+
+    private static void processClass(String scanId, PsiElementEntity psiElementEntity, JsonObject v) {
+        String qualifiedName = v.get("qualifiedName").getAsString();
+        psiElementEntity.setQualifiedName(qualifiedName);
+        ClassEntity classEntity = parseClassEntity(scanId, v);
+        if (classEntity != null) {
+            classEntity.mergePsiElements(new ClassEntityReferRel(psiElementEntity, "declare"));
+        }
+    }
+
+    private static void processAnnotation(String scanId, PsiElementEntity psiElementEntity, JsonObject v) {
+        psiElementEntity.setQualifiedName(v.get("qualifiedName").getAsString());
+        JsonObject annotationClassObj = v.get("annotationClass").getAsJsonObject();
+        ClassEntity classEntity = parseClassEntity(scanId, annotationClassObj);
+        if (classEntity != null) {
+            classEntity.mergePsiElements(new ClassEntityReferRel(psiElementEntity, "refer"));
+        }
+        JsonArray attributesArr = v.get("attributes").getAsJsonArray();
+        ArrayList<AnnotationAttrEntity> attrs = new ArrayList<>(attributesArr.size());
+        for (JsonElement attribute : attributesArr) {
+            attrs.add(new AnnotationAttrEntity(attribute));
+        }
+        psiElementEntity.setAttrs(attrs);
+    }
+
+    private void processField(String scanId, PsiElementEntity psiElementEntity, JsonObject v) {
+        String canonicalText = v.get("canonicalText").getAsString();
+        psiElementEntity.setCanonicalText(canonicalText);
+        boolean isClass = v.get("isClass").getAsBoolean();
+        ClassEntity classEntity = null;
+        if (isClass) {
+            JsonObject classInfoObj = v.get("classInfo").getAsJsonObject();
+            classEntity = parseClassEntity(scanId, classInfoObj);
+        }
+        if (classEntity != null) {
+            classEntity.mergePsiElements(new ClassEntityReferRel(psiElementEntity, "refer"));
+        }
+        //identifier info
+        String variableName = v.get("variableName").getAsString();
+        psiElementEntity.setVariableName(variableName);
+//        JsonObject nameIdentifierObj = v.get("nameIdentifier").getAsJsonObject();
+//        IdentifierEntity identifierEntity = parseIdentifierEntity(scanId, nameIdentifierObj);
+//        //initializer info
+//        Boolean hasInitializer = v.get("hasInitializer").getAsBoolean();
+//        psiElementEntity.setHasInitializer(hasInitializer);
+//        if (hasInitializer) {
+//            JsonObject  initializerObj = v.get("initializer").getAsJsonObject();
+//            ExpressionEntity expressionEntity = parseExpressionEntity(scanId, nameIdentifierObj);
+//        }
+    }
+
+    private void processIdentifier(String scanId, PsiElementEntity psiElementEntity, JsonObject v) {
+
+    }
+
+    private void processExpression(String scanId, PsiElementEntity psiElementEntity, JsonObject v) {
     }
 
     private static ClassEntity parseClassEntity(String scanId, JsonObject v) {
@@ -464,6 +511,13 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         return classEntity;
     }
 
+    //    private ExpressionEntity parseExpressionEntity(String scanId, JsonObject v) {
+//        return null;
+//    }
+//
+//    private IdentifierEntity parseIdentifierEntity(String scanId, JsonObject v) {
+//        return null;
+//    }
     private static void parseBasicInfo(PsiElementEntity psiElementEntity, JsonObject v) {
         String psiType = "unknown";
         JsonElement psiTypeObj = v.get("psiType");

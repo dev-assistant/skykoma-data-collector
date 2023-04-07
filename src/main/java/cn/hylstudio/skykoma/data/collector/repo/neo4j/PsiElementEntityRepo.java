@@ -27,15 +27,26 @@ public interface PsiElementEntityRepo extends Neo4jRepository<PsiElementEntity, 
             scanRecord.scanId = $scanId
             AND
             file.type = "file"
-            MATCH (file)-[:HAS_PSI_ELEMENTS|CONTAINS*1..]->
             //match annotation elements
-            (annotationElement:PsiElementEntity{psiType:'Annotation'})
-            //add alias label
+            MATCH (file)-[:HAS_PSI_ELEMENTS|CONTAINS*1..]->(annotationElement:PsiElementEntity{psiType:'Annotation'})
+            //add annotation alias label
             SET annotationElement:AnnotationEntity
-            //attach to scanRecord
+            //attach annotation to scanRecord
             MERGE (scanRecord)-[:CONTAINS]->(annotationElement)
             """)
-    void aliasElementToAnnotationEntity(String scanId);
+    void aliasElementsAnnotationEntity(String scanId);
+    @Query("""
+            MATCH (scanRecord:ScanRecordEntity)-[:MODULE_ROOT|SYMBOL_LINK|CONTAINS*1..]->(file:FileEntity)
+            WHERE
+            scanRecord.scanId = $scanId
+            AND
+            file.type = "file"
+            //match field elements
+            MATCH (file)-[:HAS_PSI_ELEMENTS|CONTAINS*1..]->(fieldElement:PsiElementEntity{psiType:'Field'})
+            //add field alias label
+            SET fieldElement:FieldEntity
+            """)
+    void aliasElementsFieldEntity(String scanId);
 
     @Query("""
             MATCH (scanRecord:ScanRecordEntity{scanId:$scanId})
