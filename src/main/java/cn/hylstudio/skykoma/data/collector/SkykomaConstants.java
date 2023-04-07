@@ -34,5 +34,8 @@ public class SkykomaConstants {
     );
     public static final String PSI_ELEMENT_TYPE_CLASS = "Class";
     public static final String PSI_ELEMENT_TYPE_ANNOTATION = "Annotation";
+    public static final String PSI_ELEMENT_TYPE_FIELD = "Field";
+    public static final String PSI_ELEMENT_TYPE_IDENTIFIER = "Identifier";
+    public static final String PSI_ELEMENT_TYPE_EXPRESSION = "Expression";
 
 }

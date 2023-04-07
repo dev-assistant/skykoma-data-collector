@@ -329,14 +329,14 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
             ClassEntity classEntity = parseClassEntity(scanId, v);
             if (classEntity != null) {
 //                psiElementEntity.setClassInfo(classEntity);
-                classEntity.mergePsiElements(psiElementEntity);
+                classEntity.mergePsiElements(new ClassEntityReferRel(psiElementEntity,"declare"));
             }
         } else if (SkykomaConstants.PSI_ELEMENT_TYPE_ANNOTATION.equals(psiType)) {
             psiElementEntity.setQualifiedName(v.get("qualifiedName").getAsString());
             JsonObject annotationClassObj = v.get("annotationClass").getAsJsonObject();
             ClassEntity classEntity = parseClassEntity(scanId, annotationClassObj);
             if (classEntity != null) {
-                classEntity.mergePsiElements(psiElementEntity);
+                classEntity.mergePsiElements(new ClassEntityReferRel(psiElementEntity,"refer"));
 //                psiElementEntity.setClassInfo(classEntity);
             }
             JsonArray attributesArr = v.get("attributes").getAsJsonArray();

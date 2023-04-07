@@ -29,8 +29,8 @@ public class ClassEntity {
     private List<String> superTypeCanonicalTextsList;
     @Property
     private List<String> superTypeSuperTypeCanonicalTexts;
-    @Relationship(type = "IS_CLASS", direction = Relationship.Direction.INCOMING)
-    private List<PsiElementEntity> psiElements;
+    @Relationship(type = "REFER_CLASS", direction = Relationship.Direction.INCOMING)
+    private Set<ClassEntityReferRel> psiElements;
     @Relationship(type = "HAS_PARENT", direction = Relationship.Direction.OUTGOING)
     private Set<ClassEntityParentRel> parents;
     @Property
@@ -87,13 +87,13 @@ public class ClassEntity {
         parents.addAll(v);
     }
 
-    public synchronized void mergePsiElements(PsiElementEntity psiElementEntity) {
-        List<PsiElementEntity> psiElements = this.getPsiElements();
+    public synchronized void mergePsiElements(ClassEntityReferRel referRel) {
+        Set<ClassEntityReferRel> psiElements = this.getPsiElements();
         if (psiElements == null) {
-            psiElements = new ArrayList<>();
+            psiElements = new HashSet<>();
             this.setPsiElements(psiElements);
         }
-        psiElements.add(psiElementEntity);
+        psiElements.add(referRel);
     }
 
     @Override
