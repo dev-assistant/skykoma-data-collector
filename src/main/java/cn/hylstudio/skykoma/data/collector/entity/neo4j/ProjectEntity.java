@@ -1,5 +1,6 @@
 package cn.hylstudio.skykoma.data.collector.entity.neo4j;
 
+import cn.hylstudio.skykoma.data.collector.entity.neo4j.projection.ProjectEntityNodeProjection;
 import cn.hylstudio.skykoma.data.collector.model.ProjectInfoDto;
 import cn.hylstudio.skykoma.data.collector.model.payload.ProjectInfoQueryPayload;
 import cn.hylstudio.skykoma.data.collector.model.payload.ProjectInfoUploadPayload;
@@ -56,5 +57,14 @@ public class ProjectEntity {
 
     }
 
+    public ProjectEntityNodeProjection toProjection() {
+        return new ProjectEntityNodeProjection(
+                this.id,
+                this.key,
+                this.name,
+                this.createdAt,
+                this.updatedAt
+        );
+    }
 }
 

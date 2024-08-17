@@ -8,7 +8,10 @@ import org.springframework.data.neo4j.repository.query.Query;
 public interface ProjectEntityRepo extends Neo4jRepository<ProjectEntity, String> {
 //    ProjectEntity findByName(String projectName);
 //    ProjectEntity findByKey(String projectKey);
-
+    @Query("""  
+        MATCH (a:ProjectEntity {key: $projectKey})
+        RETURN a
+        """)
     ProjectEntityNodeProjection findProjectEntityNodeProjectionByKey(String projectKey);
 
     @Query("""
@@ -26,7 +29,7 @@ public interface ProjectEntityRepo extends Neo4jRepository<ProjectEntity, String
     void addScanRecordRel(String projectEntityId, String scanRecordEntityId);
     @Query("""
             MATCH (scanRecord:ScanRecordEntity)-[:CONTAINS]->(:ModuleEntity)-[:MODULE_ROOT]->(moduleRoot:FileEntity)
-            MATCH (srcRoot:FileEntity)
+            MATCH (scanRecord)-[:ROOT_AT]->(:FileEntity)-[:CONTAINS*1..]->(srcRoot:FileEntity)
             WHERE
             scanRecord.scanId = $scanId AND
             moduleRoot.relativePath = srcRoot.relativePath AND
