@@ -8,4 +8,5 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 public class QueryScanPayload {
     private String scanId;
+    private String relativePath;
 }

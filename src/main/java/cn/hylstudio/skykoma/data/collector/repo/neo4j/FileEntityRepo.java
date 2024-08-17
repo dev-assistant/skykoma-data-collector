@@ -17,4 +17,14 @@ public interface FileEntityRepo extends Neo4jRepository<FileEntity, String> {
             RETURN file
             """)
     FileEntity findByScanIdAndRelativePath(String scanId, String relativePath);
+    @Query("""
+            MATCH
+            (scanRecord:ScanRecordEntity)-[:ROOT_AT]->(:FileEntity)-[:CONTAINS*1..]->(file:FileEntity)
+            WHERE
+            scanRecord.scanId = $scanId
+            AND
+            file.relativePath = $relativePath
+            SET file.scanStatus = $status
+            """)
+    void updateScanStatus(String scanId, String id, String status);
 }

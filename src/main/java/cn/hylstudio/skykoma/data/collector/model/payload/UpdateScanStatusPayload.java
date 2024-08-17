@@ -6,6 +6,7 @@ import lombok.Data;
 public class UpdateScanStatusPayload {
     private String projectKey;
     private String scanId;
+    private String relativePath;
     private String status;
 
     public UpdateScanStatusPayload(String scanId, String status) {

@@ -33,6 +33,8 @@ public class FileEntity {
     private List<FileEntity> subFiles;
     @Relationship(type = "HAS_PSI_ELEMENTS", direction = Relationship.Direction.OUTGOING)
     private List<PsiElementEntity> psiElements;
+    @Property
+    private String scanStatus;
     @CreatedDate
     @Property
     private Long createdAt;

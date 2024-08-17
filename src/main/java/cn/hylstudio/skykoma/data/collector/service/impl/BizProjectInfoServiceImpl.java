@@ -84,7 +84,7 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         ProjectEntityNodeProjection projectEntityNodeProjection = projectEntityRepo
                 .findProjectEntityNodeProjectionByKey(projectKey);
         if (projectEntityNodeProjection == null) {
-             throw new BizException(BizCode.NOT_FOUND, "project not exists");
+            throw new BizException(BizCode.NOT_FOUND, "project not exists");
         }
         ScanRecordEntity scanRecordEntity = scanRecordEntityRepo.findByScanId(scanId);
         if (scanRecordEntity == null) {
@@ -145,6 +145,15 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
             throw new BizException(BizCode.WRONG_PARAMS, "scanId error");
         }
         ScanRecordDto scanRecordDto = new ScanRecordDto(scanRecordEntityProjectionByScanId);
+        String relativePath = payload.getRelativePath();
+        if (StringUtils.hasText(relativePath)) {
+            FileEntity fileEntity = fileEntityRepo.findByScanIdAndRelativePath(scanId, relativePath);
+            if (fileEntity == null) {
+                throw new BizException(BizCode.WRONG_PARAMS, "relativePath error");
+            }
+            String status = fileEntity.getScanStatus();
+            scanRecordDto.setStatus(status);
+        }
         return scanRecordDto;
     }
 
@@ -187,6 +196,16 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         scanRecordEntityRepo.updateStatus(scanId, status);
         scanRecordEntityProjectionByScanId = scanRecordEntityRepo.findScanRecordEntityProjectionByScanId(scanId);
         ScanRecordDto scanRecordDto = new ScanRecordDto(scanRecordEntityProjectionByScanId);
+        String relativePath = payload.getRelativePath();
+        if (StringUtils.hasText(relativePath)) {
+            FileEntity fileEntity = fileEntityRepo.findByScanIdAndRelativePath(scanId, relativePath);
+            if (fileEntity == null) {
+                throw new BizException(BizCode.WRONG_PARAMS, "relativePath error");
+            }
+            fileEntity.setScanStatus(status);
+            fileEntityRepo.updateScanStatus(scanId, fileEntity.getId(), status);
+            scanRecordDto.setStatus(status);
+        }
         return scanRecordDto;
     }
 
