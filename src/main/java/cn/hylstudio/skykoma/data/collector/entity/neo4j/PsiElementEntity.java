@@ -16,32 +16,46 @@ public class PsiElementEntity {//AnnotationEntity, FieldEntity
     @Id
     @GeneratedValue(generatorClass = UUIDStringGenerator.class)
     private String id;
+
     @Property
-    private String psiType; //Class Annotation unknown
+    private Integer elemDepth;
+    @Property
+    private Integer propDepth;
     @Property
     private String className;
     @Property
+    private String containingFileName;
+    @Property
     private String originText;
+    @Property
+    private Integer lineNumber;
     @Property
     private Integer startOffset;
     @Property
     private Integer endOffset;
     @Property
-    private Integer lineNumber;
+    private String error;
+    @Property
+    private Boolean inProject;
+    @Property
+    private String relativePath;
+    @Property
+    private String absolutePath;
     @Relationship(type = "CONTAINS", direction = Relationship.Direction.OUTGOING)
     private List<PsiElementEntity> childElements;
-    @Property
-    private String qualifiedName;//Class Annotation
-    //    @Relationship(type = "REFER_CLASS", direction = Relationship.Direction.OUTGOING)
-    //    private ClassEntity classInfo;
-    @Property
-    private String canonicalText;//Field type canonicalText
-    @Property
-    private String variableName;//Field
-    @Property
-    private Boolean hasInitializer;//Field
-    @Relationship(type = "HAS_ATTR", direction = Relationship.Direction.OUTGOING)
-    private List<AnnotationAttrEntity> attrs;//Annotation
+//    @Relationship(type = "HAS_PROPS", direction = Relationship.Direction.OUTGOING)
+//    private List<PsiElementPropsEntity> props;
+
+//    @Property
+//    private String psiType; //Class Annotation unknown
+//    @Property
+//    private String qualifiedName;//Class Annotation
+//    @Property
+//    private String canonicalText;//Field type canonicalText
+//    @Property
+//    private String variableName;//Field
+//    @Property
+//    private Boolean hasInitializer;//Field
     @CreatedDate
     @Property
     private Long createdAt;

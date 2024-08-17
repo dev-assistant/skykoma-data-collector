@@ -5,7 +5,7 @@ import cn.hylstudio.skykoma.data.collector.entity.neo4j.projection.ScanRecordEnt
 import org.springframework.data.neo4j.repository.Neo4jRepository;
 import org.springframework.data.neo4j.repository.query.Query;
 
-public interface ScanEntityRepo extends Neo4jRepository<ScanRecordEntity, String> {
+public interface ScanRecordEntityRepo extends Neo4jRepository<ScanRecordEntity, String> {
     ScanRecordEntity findByScanId(String scanId);
 
     ScanRecordEntityProjection findScanRecordEntityProjectionByScanId(String scanId);
