@@ -222,7 +222,6 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
             LOGGER.info("updateProjectFileInfoSync, scanRecord not found, scanId = [{}]", scanId);
             return;
         }
-        scanRecordEntityRepo.updateStatus(scanId, ScanRecordEntity.STATUS_SCANNING);
         String relativePath = fileDto.getRelativePath();
         FileEntity fileEntity = fileEntityRepo.findByScanIdAndRelativePath(scanId, relativePath);
         if (fileEntity == null) {
@@ -230,11 +229,13 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
             return;
         }
         String fileEntityId = fileEntity.getId();
+        fileEntityRepo.updateScanStatus(scanId, fileEntityId, ScanRecordEntity.STATUS_SCANNING);
         List<PsiElementEntity> psiElementRoots = processPsiFileJson(scanId, fileDto, fileEntity, psiFileJson);
         psiElementRoots = psiElementEntityRepo.saveAll(psiElementRoots);
         List<String> psiElementIds = psiElementRoots.stream().map(PsiElementEntity::getId).collect(Collectors.toList());
         psiElementEntityRepo.attachToFileEntity(scanId, fileEntityId, psiElementIds);
-        scanRecordEntityRepo.updateStatus(scanId, ScanRecordEntity.STATUS_SCANNED);
+//        scanRecordEntityRepo.updateStatus(scanId, ScanRecordEntity.STATUS_SCANNED);
+        fileEntityRepo.updateScanStatus(scanId, fileEntityId, ScanRecordEntity.STATUS_SCANNED);
     }
 
     private List<ModuleEntity> saveModuleEntities(List<ModuleDto> moduleDtos) {
