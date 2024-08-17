@@ -23,7 +23,7 @@ public interface FileEntityRepo extends Neo4jRepository<FileEntity, String> {
             WHERE
             scanRecord.scanId = $scanId
             AND
-            file.relativePath = $relativePath
+            file.id = $id
             SET file.scanStatus = $status
             """)
     void updateScanStatus(String scanId, String id, String status);
