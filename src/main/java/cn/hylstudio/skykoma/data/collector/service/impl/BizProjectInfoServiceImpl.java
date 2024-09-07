@@ -7,6 +7,7 @@ import cn.hylstudio.skykoma.data.collector.ex.BizException;
 import cn.hylstudio.skykoma.data.collector.model.*;
 import cn.hylstudio.skykoma.data.collector.model.payload.*;
 import cn.hylstudio.skykoma.data.collector.repo.neo4j.*;
+import cn.hylstudio.skykoma.data.collector.service.IBizDataAnalyzeService;
 import cn.hylstudio.skykoma.data.collector.service.IBizProjectInfoService;
 import com.google.gson.*;
 import org.slf4j.Logger;
@@ -120,7 +121,6 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         scanRecordEntity.setModules(moduleEntities);
         String scanRecordEntityId = scanRecordEntity.getId();
         projectEntityRepo.addScanRecordRel(projectEntityId, scanRecordEntityId);
-        projectEntityRepo.symbolLinkModuleRootToFileTree(scanId);
         long dur2 = System.currentTimeMillis() - begin2;
         LOGGER.info("uploadProjectInfo, saved module info, projectKey = [{}], scanId = [{}], dur = {}ms", projectKey, scanId, dur2);
         scanRecordEntity.setStatus(ScanRecordEntity.STATUS_UPLOADED);
@@ -211,9 +211,16 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
             fileEntity.setScanStatus(status);
             fileEntityRepo.updateScanStatus(scanId, fileEntity.getId(), status);
             scanRecordDto.setStatus(status);
+        } else {
+            if (ScanRecordEntity.STATUS_FINISHED.equals(status)) {
+                bizDataAnalyzeService.triggerAnalyzeAsync(scanId);
+            }
         }
         return scanRecordDto;
     }
+
+    @Autowired
+    private IBizDataAnalyzeService bizDataAnalyzeService;
 
     private void updateProjectFileInfoSync(ProjectFileInfoUploadPayload payload) {
         String scanId = payload.getScanId();
