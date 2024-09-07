@@ -9,6 +9,7 @@ import com.google.gson.Gson;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.ResourceLoader;
 import org.springframework.util.CollectionUtils;
@@ -140,11 +141,12 @@ public class ProjectInfoController extends AbstractController {
     @Autowired
     private ResourceLoader resourceLoader;
 
+    @Value("${debug.file.path}")
+    private String debugPath;
     private void debugJson(String payloadJson, String scanId, String fileName) {
+
         try {
-            Resource resource = resourceLoader.getResource("classpath:");
-            File rootDir = resource.getFile();
-            String rootPath = rootDir.getAbsolutePath();
+            String rootPath = debugPath;
             // String rootPath = "";
             String parentPath = "%s/%s".formatted(rootPath, scanId);
             if (!new File(parentPath).exists()) {
