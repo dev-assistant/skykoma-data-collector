@@ -20,6 +20,16 @@ public class PsiElementPropsEntity {
     private Integer elemDepth;
     @Property
     private Integer propDepth;
+    @Property
+    private String name;
+    @Property
+    private String type;
+    @Property
+    private String value;
+    @Relationship(type = "HAS_PROPS", direction = Relationship.Direction.OUTGOING)
+    private List<PsiElementPropsEntity> props;
+    @Relationship(type = "IS_PSI_PROP", direction = Relationship.Direction.OUTGOING)
+    private PsiElementEntity psiProp;
     @CreatedDate
     @Property
     private Long createdAt;

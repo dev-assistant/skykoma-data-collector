@@ -34,6 +34,8 @@ public class PsiElementEntity {//AnnotationEntity, FieldEntity
     @Property
     private Integer endOffset;
     @Property
+    private Boolean hasErr;
+    @Property
     private String error;
     @Property
     private Boolean inProject;
@@ -43,8 +45,8 @@ public class PsiElementEntity {//AnnotationEntity, FieldEntity
     private String absolutePath;
     @Relationship(type = "CONTAINS", direction = Relationship.Direction.OUTGOING)
     private List<PsiElementEntity> childElements;
-//    @Relationship(type = "HAS_PROPS", direction = Relationship.Direction.OUTGOING)
-//    private List<PsiElementPropsEntity> props;
+    @Relationship(type = "HAS_PROPS", direction = Relationship.Direction.OUTGOING)
+    private List<PsiElementPropsEntity> props;
 
 //    @Property
 //    private String psiType; //Class Annotation unknown

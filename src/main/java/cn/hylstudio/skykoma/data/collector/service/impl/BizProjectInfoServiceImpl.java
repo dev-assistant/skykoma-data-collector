@@ -22,6 +22,7 @@ import org.springframework.util.StringUtils;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 @Service
@@ -130,11 +131,16 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
     @Async
     @Override
     public void updateProjectFileInfoAsync(ProjectFileInfoUploadPayload payload) {
-        long begin = System.currentTimeMillis();
-        updateProjectFileInfoSync(payload);
-        long duration = System.currentTimeMillis() - begin;
-        LOGGER.info("updateProjectFileInfoAsync file = [{}], scanId = [{}], dur = {}ms",
-                payload.getFileDto().getName(), payload.getScanId(), duration);
+        try {
+            long begin = System.currentTimeMillis();
+            updateProjectFileInfoSync(payload);
+            long duration = System.currentTimeMillis() - begin;
+            LOGGER.info("updateProjectFileInfoAsync file = [{}], scanId = [{}], dur = {}ms",
+                    payload.getFileDto().getName(), payload.getScanId(), duration);
+        } catch (Exception e) {
+            LOGGER.error("updateProjectFileInfoAsync error file = [{}], scanId = [{}], e = [{}]",
+                    payload.getFileDto().getName(), payload.getScanId(), e.getMessage(), e);
+        }
     }
 
     @Override
@@ -231,7 +237,6 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         String fileEntityId = fileEntity.getId();
         fileEntityRepo.updateScanStatus(scanId, fileEntityId, ScanRecordEntity.STATUS_SCANNING);
         List<PsiElementEntity> psiElementRoots = processPsiFileJson(scanId, fileDto, fileEntity, psiFileJson);
-        psiElementRoots = psiElementEntityRepo.saveAll(psiElementRoots);
         List<String> psiElementIds = psiElementRoots.stream().map(PsiElementEntity::getId).collect(Collectors.toList());
         psiElementEntityRepo.attachToFileEntity(scanId, fileEntityId, psiElementIds);
 //        scanRecordEntityRepo.updateStatus(scanId, ScanRecordEntity.STATUS_SCANNED);
@@ -361,30 +366,131 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         file.setFileEntity(fileEntity);
         JsonElement psiFile = JsonParser.parseString(psiFileJson);
         JsonArray rootElements = psiFile.getAsJsonArray();
-        List<PsiElementEntity> psiElementRoots = new ArrayList<>(rootElements.size());
-        for (JsonElement rootElement : rootElements) {
-            PsiElementEntity psiElement = convertToPsiElementEntity(scanId, rootElement);
-            psiElementRoots.add(psiElement);
+        int size = rootElements.size();
+        List<PsiElementEntity> psiElementRoots = new ArrayList<>(size);
+        for (int i = 0; i < size; i++) {
+            LOGGER.info("processPsiFileJson file = [{}] {}/{} begin, scanId = [{}]",
+                    file.getName(), i + 1, size, scanId);
+            JsonElement rootElement = rootElements.get(i);
+            long start = System.currentTimeMillis();
+            PsiElementEntity psiElement = convertToPsiElementEntity(rootElement);
+            long duration1 = System.currentTimeMillis() - start;
+            LOGGER.info("processPsiFileJson file = [{}] {}/{} parse end, scanId = [{}], dur = {}ms",
+                    file.getName(), i + 1, size, scanId, duration1);
+            if (psiElement != null) {
+                psiElement = psiElementEntityRepo.save(psiElement);
+                psiElementRoots.add(psiElement);
+            }
+            long duration2 = System.currentTimeMillis() - start;
+            LOGGER.info("processPsiFileJson file = [{}] {}/{} save end, scanId = [{}], dur = {}ms",
+                    file.getName(), i + 1, size, scanId, duration2);
         }
         return psiElementRoots;
     }
 
-    private PsiElementEntity convertToPsiElementEntity(String scanId, JsonElement psiElement) {
-        PsiElementEntity psiElementEntity = new PsiElementEntity();
+    private static PsiElementEntity convertToPsiElementEntity(JsonElement psiElement) {
         JsonObject v = psiElement.getAsJsonObject();
+        JsonElement gsonTypeObj = v.get("gsonType");
+        if (gsonTypeObj == null) {
+            return null;
+        }
+        String gsonType = gsonTypeObj.getAsString();
+        if (!"PsiElement".equals(gsonType)) {
+            return null;
+        }
+        PsiElementEntity psiElementEntity = new PsiElementEntity();
         parseBasicInfo(psiElementEntity, v);
-        psiElementEntity.setChildElements(Collections.emptyList());
-        JsonArray childElements = v.get("childElements").getAsJsonArray();
+        parsePropsInfo(psiElementEntity, v);
+        JsonElement childElements = v.get("childElements");
+        if (childElements == null) {
+            psiElementEntity.setChildElements(Collections.emptyList());
+            return psiElementEntity;
+        }
+        JsonArray childElementsArr = childElements.getAsJsonArray();
         int childSize = 0;
-        if (childElements != null && childElements.size() > 0) {
-            childSize = childElements.size();
+        if (childElementsArr != null && childElementsArr.size() > 0) {
+            childSize = childElementsArr.size();
             List<PsiElementEntity> tmp = new ArrayList<>(childSize);
             psiElementEntity.setChildElements(tmp);
-            for (JsonElement childElement : childElements) {
-                tmp.add(convertToPsiElementEntity(scanId, childElement));
+            for (JsonElement childElement : childElementsArr) {
+                tmp.add(convertToPsiElementEntity(childElement));
+//                tmp.add(convertToPsiElementEntity(scanId, childElement));
             }
         }
         return psiElementEntity;
+    }
+
+    private static void parsePropsInfo(PsiElementEntity psiElementEntity, JsonObject v) {
+        boolean hasPorps = false;
+        JsonElement hasPropsObj = v.get("hasProps");
+        if (hasPropsObj != null) {
+            hasPorps = hasPropsObj.getAsBoolean();
+        }
+        if (!hasPorps) {
+            return;
+        }
+        JsonElement propsElement = v.get("props");
+        if (propsElement == null || !propsElement.isJsonObject()) {
+            return;
+        }
+        JsonObject propsObj = propsElement.getAsJsonObject();
+        Set<String> keys = propsObj.keySet();
+        List<PsiElementPropsEntity> propsList = new ArrayList<>(keys.size());
+        for (String key : keys) {
+            JsonElement propObj = propsObj.get(key);
+            if (propObj == null) {
+                continue;
+            }
+            String methodName = key;
+            List<PsiElementPropsEntity> propEntityList = convertToPsiElementPropEntity(propObj);
+            if (CollectionUtils.isEmpty(propEntityList)) {
+                continue;
+            }
+            propEntityList.forEach(prop -> prop.setName(methodName));
+            propsList.addAll(propEntityList);
+        }
+
+        psiElementEntity.setProps(propsList);
+    }
+
+    private static List<PsiElementPropsEntity> convertToPsiElementPropEntity(JsonElement propElement) {
+        boolean jsonPrimitive = propElement.isJsonPrimitive();
+        if (jsonPrimitive) {
+            PsiElementPropsEntity propsEntity = new PsiElementPropsEntity();
+            String primitiveValue = propElement.getAsString();
+            propsEntity.setType("str");
+            propsEntity.setValue(primitiveValue);
+            return Collections.singletonList(propsEntity);
+        }
+        if (propElement.isJsonObject()) {
+            PsiElementEntity psiElementEntity = convertToPsiElementEntity(propElement);
+            if (psiElementEntity == null) {
+                return null;
+            }
+            PsiElementPropsEntity propsEntity = new PsiElementPropsEntity();
+            propsEntity.setType("psi");
+            propsEntity.setPsiProp(psiElementEntity);
+            return Collections.singletonList(propsEntity);
+        }
+        if (propElement.isJsonArray()) {
+            JsonArray propObjAsJsonArray = propElement.getAsJsonArray();
+            int size = propObjAsJsonArray.size();
+            PsiElementPropsEntity propsEntity = new PsiElementPropsEntity();
+            List<PsiElementPropsEntity> result = new ArrayList<>(size);
+            for (int i = 0; i < size; i++) {
+                List<PsiElementPropsEntity> tmpList = convertToPsiElementPropEntity(propObjAsJsonArray.get(i));
+                if (CollectionUtils.isEmpty(tmpList)) {
+                    continue;
+                }
+                result.addAll(tmpList);
+            }
+            propsEntity.setType("arr");
+            propsEntity.setProps(result);
+            return Collections.singletonList(propsEntity);
+        }
+        PsiElementPropsEntity propsEntity = new PsiElementPropsEntity();
+        propsEntity.setType("unknown");
+        return Collections.singletonList(propsEntity);
     }
 
     private static void parseBasicInfo(PsiElementEntity psiElementEntity, JsonObject v) {
@@ -397,6 +503,11 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         JsonElement propDepthObj = v.get("propDepth");
         if (propDepthObj != null) {
             propDepth = propDepthObj.getAsInt();
+        }
+        boolean hasErr = false;
+        JsonElement hasErrObj = v.get("hasErr");
+        if (hasErrObj != null) {
+            hasErr = hasErrObj.getAsBoolean();
         }
         String className = "unknown";
         JsonElement classNameObj = v.get("className");
@@ -420,7 +531,7 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         }
         Integer startOffset = 0;
         JsonElement startOffsetObj = v.get("startOffset");
-        if (classNameObj != null) {
+        if (startOffsetObj != null) {
             startOffset = startOffsetObj.getAsInt();
         }
         Integer endOffset = 0;
@@ -456,6 +567,7 @@ public class BizProjectInfoServiceImpl implements IBizProjectInfoService {
         psiElementEntity.setLineNumber(lineNumber);
         psiElementEntity.setStartOffset(startOffset);
         psiElementEntity.setEndOffset(endOffset);
+        psiElementEntity.setHasErr(hasErr);
         psiElementEntity.setError(error);
         psiElementEntity.setInProject(inProject);
         psiElementEntity.setRelativePath(relativePath);
